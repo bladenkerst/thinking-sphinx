@@ -93,8 +93,7 @@ module ThinkingSphinx
         add_scope(method, *args, &block)
         return self
       elsif method == :search_count
-        @options[:ids_only] = true
-        return self.total_entries
+        return scoped_count
       elsif method.to_s[/^each_with_.*/].nil? && !@array.respond_to?(method)
         super
       elsif !SafeMethods.include?(method.to_s)
@@ -181,11 +180,12 @@ module ThinkingSphinx
     end
     
     # The current page's offset, based on the number of records per page.
+    # Or explicit :offset if given. 
     # 
     # @return [Integer]
     # 
     def offset
-      (current_page - 1) * per_page
+      @options[:offset] || ((current_page - 1) * per_page)
     end
     
     def indexes
@@ -730,6 +730,17 @@ MSG
           options[key] = search.options[key]
         end
       end
+    end
+    
+    def scoped_count
+      return self.total_entries if @options[:ids_only]
+      
+      @options[:ids_only] = true
+      results_count = self.total_entries
+      @options[:ids_only] = false
+      @populated = false
+      
+      results_count
     end
   end
 end
