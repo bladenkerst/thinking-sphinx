@@ -80,7 +80,7 @@ module ThinkingSphinx
     end
     
     def set_source_database_settings(source)
-      config = @model.connection.instance_variable_get(:@config)
+      config = adapter.connection.instance_variable_get(:@config)
       
       source.sql_host = config[:host]           || "localhost"
       source.sql_user = config[:username]       || config[:user] || 'root'

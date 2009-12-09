@@ -50,6 +50,8 @@ module ThinkingSphinx
     end
   end
   
+  mattr_reader :connection_definition, :base_connection
+  
   # The current version of Thinking Sphinx.
   # 
   # @return [String] The version number as a string
@@ -215,13 +217,22 @@ module ThinkingSphinx
   end
 
   def self.mysql?
-    ::ActiveRecord::Base.connection.class.name.demodulize == "MysqlAdapter" ||
-    ::ActiveRecord::Base.connection.class.name.demodulize == "MysqlplusAdapter" || (
-      jruby? && ::ActiveRecord::Base.connection.config[:adapter] == "jdbcmysql"
+    self.base_connection.class.name.demodulize == "MysqlAdapter" ||
+    self.base_connection.class.name.demodulize == "MysqlplusAdapter" || (
+      jruby? && self.base_connection.config[:adapter] == "jdbcmysql"
     )
+  end
+  
+  def self.define_connection(&block)
+    @@connection_definition = block
+    @@base_connection       = @@connection_definition.call(::ActiveRecord::Base)
   end
   
   extend ThinkingSphinx::SearchMethods::ClassMethods
 end
 
 ThinkingSphinx::AutoVersion.detect
+
+ThinkingSphinx.define_connection do |model|
+  model.connection
+end
