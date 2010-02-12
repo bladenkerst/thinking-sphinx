@@ -10,8 +10,7 @@ module ThinkingSphinx
     end
       
     def self.detect(model)
-      connection ||= ThinkingSphinx.connection_definition.call(model)
-      case connection.class.name
+      case model.connection.class.name
       when "ActiveRecord::ConnectionAdapters::MysqlAdapter",
            "ActiveRecord::ConnectionAdapters::MysqlplusAdapter"
         ThinkingSphinx::MysqlAdapter.new model
@@ -34,8 +33,14 @@ module ThinkingSphinx
       "#{@model.quoted_table_name}.#{@model.connection.quote_column_name(column)}"
     end
     
+    def bigint_pattern
+      /bigint/i
+    end
+    
+    protected
+    
     def connection
-      @connection ||= ThinkingSphinx.connection_definition.call(@model)
+      @connection ||= @model.connection
     end
   end
 end

@@ -57,17 +57,35 @@ module ThinkingSphinx
       ThinkingSphinx.facets *args
     end
     
+    def self.matching_fields(fields, bitmask)
+      matches   = []
+      bitstring = bitmask.to_s(2).rjust(32, '0').reverse
+      
+      fields.each_with_index do |field, index|
+        matches << field if bitstring[index, 1] == '1'
+      end
+      matches
+    end
+    
     def initialize(*args)
       ThinkingSphinx.context.define_indexes
       
       @array    = []
       @options  = args.extract_options!
       @args     = args
+      
+      populate if @options[:populate]
     end
     
     def to_a
       populate
       @array
+    end
+    
+    def freeze
+      populate
+      @array.freeze
+      self
     end
     
     # Indication of whether the request has been made to Sphinx for the search
@@ -113,8 +131,8 @@ module ThinkingSphinx
     # @param [Symbol] method The method name
     # @return [Boolean] true if either Search or Array responds to the method.
     # 
-    def respond_to?(method)
-      super || @array.respond_to?(method)
+    def respond_to?(method, include_private = false)
+      super || @array.respond_to?(method, include_private)
     end
     
     # The current page number of the result set. Defaults to 1 if no page was
@@ -262,6 +280,7 @@ module ThinkingSphinx
           replace instances_from_matches
           add_excerpter
           add_sphinx_attributes
+          add_matching_fields if client.rank_mode == :fieldmask
         end
       end
     end
@@ -283,17 +302,37 @@ module ThinkingSphinx
       each do |object|
         next if object.nil? || object.respond_to?(:sphinx_attributes)
         
-        match = @results[:matches].detect { |match|
-          match[:attributes]['sphinx_internal_id'] == object.
-            primary_key_for_sphinx &&
-          match[:attributes]['class_crc'] == object.class.to_crc32
-        }
+        match = match_hash object
         next if match.nil?
         
         object.metaclass.instance_eval do
           define_method(:sphinx_attributes) { match[:attributes] }
         end
       end
+    end
+    
+    def add_matching_fields
+      each do |object|
+        next if object.nil? || object.respond_to?(:matching_fields)
+        
+        match = match_hash object
+        next if match.nil?
+        fields = ThinkingSphinx::Search.matching_fields(
+          @results[:fields], match[:weight]
+        )
+        
+        object.metaclass.instance_eval do
+          define_method(:matching_fields) { fields }
+        end
+      end
+    end
+    
+    def match_hash(object)
+      @results[:matches].detect { |match|
+        match[:attributes]['sphinx_internal_id'] == object.
+          primary_key_for_sphinx &&
+        match[:attributes]['class_crc'] == object.class.to_crc32
+      }
     end
     
     def self.log(message, method = :debug, identifier = 'Sphinx')
@@ -319,9 +358,7 @@ module ThinkingSphinx
         :group_distinct, :id_range, :cut_off, :retry_count, :retry_delay,
         :rank_mode, :max_query_time, :field_weights
       ].each do |key|
-        # puts "key: #{key}"
         value = options[key] || index_options[key]
-        # puts "value: #{value.inspect}"
         client.send("#{key}=", value) if value
       end
 

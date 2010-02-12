@@ -50,8 +50,6 @@ module ThinkingSphinx
     end
   end
   
-  mattr_reader :connection_definition, :base_connection
-  
   # The current version of Thinking Sphinx.
   # 
   # @return [String] The version number as a string
@@ -65,17 +63,26 @@ module ThinkingSphinx
   # The collection of indexed models. Keep in mind that Rails lazily loads
   # its classes, so this may not actually be populated with _all_ the models
   # that have Sphinx indexes.
+  @@sphinx_mutex = Mutex.new
+  @@context      = nil
+  
   def self.context
-    if Thread.current[:thinking_sphinx_context].nil?
-      Thread.current[:thinking_sphinx_context] = ThinkingSphinx::Context.new
-      Thread.current[:thinking_sphinx_context].prepare
+    if @@context.nil?
+      @@sphinx_mutex.synchronize do
+        if @@context.nil?
+          @@context = ThinkingSphinx::Context.new
+          @@context.prepare
+        end
+      end
     end
     
-    Thread.current[:thinking_sphinx_context]
+    @@context
   end
-  
+
   def self.reset_context!
-    Thread.current[:thinking_sphinx_context] = nil
+    @@sphinx_mutex.synchronize do
+      @@context = nil
+    end
   end
 
   def self.unique_id_expression(offset = nil)
@@ -221,22 +228,13 @@ module ThinkingSphinx
   end
 
   def self.mysql?
-    self.base_connection.class.name.demodulize == "MysqlAdapter" ||
-    self.base_connection.class.name.demodulize == "MysqlplusAdapter" || (
-      jruby? && self.base_connection.config[:adapter] == "jdbcmysql"
+    ::ActiveRecord::Base.connection.class.name.demodulize == "MysqlAdapter" ||
+    ::ActiveRecord::Base.connection.class.name.demodulize == "MysqlplusAdapter" || (
+      jruby? && ::ActiveRecord::Base.connection.config[:adapter] == "jdbcmysql"
     )
-  end
-  
-  def self.define_connection(&block)
-    @@connection_definition = block
-    @@base_connection       = @@connection_definition.call(::ActiveRecord::Base)
   end
   
   extend ThinkingSphinx::SearchMethods::ClassMethods
 end
 
 ThinkingSphinx::AutoVersion.detect
-
-ThinkingSphinx.define_connection do |model|
-  model.connection
-end
