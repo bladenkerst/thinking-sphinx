@@ -19,7 +19,8 @@ module ThinkingSphinx
       @groupings    = []
       @options      = options
       @associations = {}
-      @database_configuration = @model.connection.
+     
+      @database_configuration = @model.sphinx_connection.
         instance_variable_get(:@config).clone
       
       @base = ::ActiveRecord::Associations::ClassMethods::JoinDependency.new(

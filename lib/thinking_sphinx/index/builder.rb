@@ -245,6 +245,13 @@ module ThinkingSphinx
         FauxColumn.new(assoc, *args)
       end
       
+      # Optionally specify a separate connection to 
+      # use for source configuration
+      #
+      def connection(connection)
+        @index.model.sphinx_connection = connection
+      end
+      
       private
       
       def source

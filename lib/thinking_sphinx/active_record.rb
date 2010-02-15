@@ -12,6 +12,8 @@ module ThinkingSphinx
     def self.included(base)
       base.class_eval do
         class_inheritable_array :sphinx_indexes, :sphinx_facets
+        superclass_delegating_accessor :sphinx_connection
+        self.sphinx_connection = connection
         
         extend ThinkingSphinx::ActiveRecord::ClassMethods
         
@@ -46,7 +48,12 @@ module ThinkingSphinx
           
           def sphinx_database_adapter
             @sphinx_database_adapter ||=
-              ThinkingSphinx::AbstractAdapter.detect(self)
+              ThinkingSphinx::AbstractAdapter.detect(self, sphinx_connection)
+          end
+          
+          def sphinx_connection=(connection)
+            @sphinx_database_adapter = nil
+            @sphinx_connection = connection
           end
           
           def sphinx_name

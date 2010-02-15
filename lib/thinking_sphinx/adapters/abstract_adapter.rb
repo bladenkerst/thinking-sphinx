@@ -9,17 +9,19 @@ module ThinkingSphinx
       # they need to.
     end
       
-    def self.detect(model)
-      case model.connection.class.name
+    def self.detect(model, connection = nil)
+      connection ||= model.connection
+      
+      case connection.class.name
       when "ActiveRecord::ConnectionAdapters::MysqlAdapter",
            "ActiveRecord::ConnectionAdapters::MysqlplusAdapter"
         ThinkingSphinx::MysqlAdapter.new model
       when "ActiveRecord::ConnectionAdapters::PostgreSQLAdapter"
         ThinkingSphinx::PostgreSQLAdapter.new model
       when "ActiveRecord::ConnectionAdapters::JdbcAdapter"
-        if model.connection.config[:adapter] == "jdbcmysql"
+        if connection.config[:adapter] == "jdbcmysql"
           ThinkingSphinx::MysqlAdapter.new model
-        elsif model.connection.config[:adapter] == "jdbcpostgresql"
+        elsif connection.config[:adapter] == "jdbcpostgresql"
           ThinkingSphinx::PostgreSQLAdapter.new model
         else
           raise "Invalid Database Adapter: Sphinx only supports MySQL and PostgreSQL"
